@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>UC Artemis &mdash; Done</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <h1>Done</h1>
+    <p class="lead">All openings have been processed.</p>
+
+    <section class="summary">
+      <div class="stat"><span>Placed</span><strong>{{ placed }}</strong></div>
+      <div class="stat"><span>Skipped</span><strong>{{ skipped }}</strong></div>
+      <div class="stat"><span>Rejected</span><strong>{{ rejected }}</strong></div>
+      <div class="stat"><span>Unmatched</span><strong>{{ unmatched }}</strong></div>
+      <div class="stat total"><span>Total</span><strong>{{ total }}</strong></div>
+    </section>
+
+    <h2>Output files</h2>
+    <ul class="paths">
+      <li><strong>Marked-up PDF:</strong> <code>{{ output_pdf }}</code></li>
+      <li><strong>Markups Summary XML:</strong> <code>{{ output_xml }}</code></li>
+      <li><strong>Unmatched openings (CSV):</strong> <code>{{ output_csv }}</code></li>
+    </ul>
+
+    <p class="lead">You can close this window. To start another run, return to <a href="{{ url_for('index') }}">the upload screen</a>.</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>UC Artemis &mdash; Template</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <h1>Choose callout content</h1>
+    <p class="lead">
+      Pick which Excel columns get joined into the callout text on the PDF.
+      Opening Number is always included.
+      <strong>{{ row_count }}</strong> openings to process
+      ({% if done_count %}{{ done_count }} already done from a previous run{% else %}fresh run{% endif %}).
+    </p>
+
+    <form method="post" action="{{ url_for('start') }}">
+      <fieldset>
+        <legend>Metadata columns</legend>
+        <label class="checkbox locked">
+          <input type="checkbox" checked disabled> Opening Number <em>(always included)</em>
+        </label>
+        {% for col in metadata_columns %}
+          <label class="checkbox">
+            <input type="checkbox" name="columns" value="{{ col }}"
+              {% if col in preselected %}checked{% endif %}>
+            {{ col }}
+          </label>
+        {% endfor %}
+      </fieldset>
+
+      <button type="submit">Start review &rarr;</button>
+    </form>
+  </main>
+</body>
+</html>

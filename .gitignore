@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# PyInstaller build outputs
+build/
+dist/
+*.spec
+
+# UC Artemis run artifacts
+.uc_artemis_journal*.json
+*_markups.pdf
+*_markups_summary.xml
+*_unmatched.csv
+*_manual.csv
+*.clean.tmp
+
+# Sample / test data (often large and proprietary)
+samples/
+
+# OS / editor cruft
+~$*
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

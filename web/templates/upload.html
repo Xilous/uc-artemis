@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>UC Artemis</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="container">
+    <h1>UC Artemis</h1>
+    <p class="lead">Place Bluebeam callout markups onto a PDF, one per door opening, driven by an Excel file.</p>
+
+    {% if errors %}
+      <div class="errors">
+        {% for e in errors %}<div class="error">{{ e }}</div>{% endfor %}
+      </div>
+    {% endif %}
+
+    <form method="post" action="{{ url_for('load') }}" id="upload-form">
+      <div class="picker">
+        <span class="picker-label">Excel file</span>
+        <button type="button" class="picker-btn" data-kind="excel" data-target="excel_path">
+          Browse&hellip;
+        </button>
+        <span class="picker-display" id="excel_path_display">No file selected</span>
+        <input type="hidden" name="excel_path" id="excel_path" value="{{ defaults.excel or '' }}">
+        <small>The first column must be literally "Opening Number".</small>
+      </div>
+
+      <div class="picker">
+        <span class="picker-label">PDF file</span>
+        <button type="button" class="picker-btn" data-kind="pdf" data-target="pdf_path">
+          Browse&hellip;
+        </button>
+        <span class="picker-display" id="pdf_path_display">No file selected</span>
+        <input type="hidden" name="pdf_path" id="pdf_path" value="{{ defaults.pdf or '' }}">
+        <small>Original is never modified. A copy is created next to it.</small>
+      </div>
+
+      <button type="submit" id="load-btn" disabled>Load &rarr;</button>
+    </form>
+
+    <script>
+      const PICK_URL = "{{ url_for('pick_file') }}";
+
+      function basename(p) {
+        if (!p) return "";
+        const parts = p.replace(/\\/g, "/").split("/");
+        return parts[parts.length - 1];
+      }
+
+      function refreshLoadButton() {
+        const ok = !!document.getElementById("excel_path").value
+                && !!document.getElementById("pdf_path").value;
+        document.getElementById("load-btn").disabled = !ok;
+      }
+
+      // Pre-populate display labels if defaults were carried over from a prior submit.
+      ["excel_path", "pdf_path"].forEach((id) => {
+        const v = document.getElementById(id).value;
+        if (v) document.getElementById(id + "_display").textContent = basename(v);
+      });
+      refreshLoadButton();
+
+      document.querySelectorAll(".picker-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          btn.disabled = true;
+          btn.textContent = "Picking\u2026";
+          try {
+            const resp = await fetch(PICK_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind: btn.dataset.kind }),
+            });
+            const data = await resp.json();
+            if (data.path) {
+              document.getElementById(btn.dataset.target).value = data.path;
+              document.getElementById(btn.dataset.target + "_display").textContent = basename(data.path);
+            }
+          } catch (e) {
+            alert("File picker failed: " + e);
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "Browse\u2026";
+            refreshLoadButton();
+          }
+        });
+      });
+    </script>
+  </main>
+</body>
+</html>

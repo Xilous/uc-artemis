@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>UC Artemis &mdash; Review</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="review-mode">
+  <div class="review-shell">
+    <header class="review-header">
+      <div class="opening-info">
+        <h1 id="opening-name">Loading&hellip;</h1>
+        <p class="body-text" id="body-text"></p>
+      </div>
+      <div class="match-info">
+        <span id="match-info-text">&mdash;</span>
+      </div>
+      <div class="progress" id="progress">
+        <span>Placed <strong id="prog-placed">0</strong></span>
+        <span>Skipped <strong id="prog-skipped">0</strong></span>
+        <span>Unmatched <strong id="prog-unmatched">0</strong></span>
+        <span>Total <strong id="prog-total">0</strong></span>
+      </div>
+    </header>
+
+    <main class="canvas-area" id="canvas-area">
+      <canvas id="pdf-canvas"></canvas>
+      <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+
+      <div class="zero-match-card hidden" id="zero-match-card">
+        <h2>No matches found</h2>
+        <p>The text "<span id="zero-opening">&mdash;</span>" was not found anywhere in this PDF.</p>
+        <p class="hint">Click <strong>Skip</strong> to log this opening for manual placement in Bluebeam later.</p>
+      </div>
+
+      <div class="loading-card hidden" id="loading-card">
+        <p>Searching for the next opening&hellip;</p>
+      </div>
+    </main>
+
+    <footer class="review-footer">
+      <div class="actions">
+        <button id="accept-btn" class="primary" disabled>
+          Accept <span class="kbd">Y</span>
+        </button>
+        <button id="next-btn" disabled>
+          Next match <span class="kbd">N</span>
+        </button>
+        <button id="skip-btn">
+          Skip opening <span class="kbd">S</span>
+        </button>
+      </div>
+      <div class="hints">
+        <span>Drag the red box to reposition before accepting</span>
+        <span>&middot;</span>
+        <span>Wheel to zoom &middot; Drag empty area to pan &middot; <kbd>0</kbd> reset</span>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    window.UC_ARTEMIS = {
+      urls: {
+        pdf: "{{ url_for('pdf_file') }}",
+        state: "{{ url_for('api_state') }}",
+        next: "{{ url_for('api_next') }}",
+        accept: "{{ url_for('api_accept') }}",
+        skip: "{{ url_for('api_skip') }}",
+        update_callout: "{{ url_for('api_update_callout') }}",
+        page_callouts: "{{ url_for('api_page_callouts', page_index=0) | replace('/0/', '/__P__/') }}",
+        done: "{{ url_for('done') }}",
+      },
+      pdfWorker: "{{ url_for('static', filename='pdfjs/pdf.worker.min.js') }}",
+    };
+  </script>
+  <script src="{{ url_for('static', filename='pdfjs/pdf.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='review.js') }}"></script>
+</body>
+</html>
