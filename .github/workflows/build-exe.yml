@@ -11,6 +11,13 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+env:
+  # Silence the Node 20 deprecation warning and future-proof against the
+  # September 2026 removal. The actions we use (checkout, setup-python,
+  # upload-artifact) all run on the runner's JS runtime, and this opts them
+  # into Node 24 early. No behavior change expected.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     # PyInstaller produces platform-specific binaries, and UC Artemis ships as
