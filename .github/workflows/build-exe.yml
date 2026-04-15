@@ -1,0 +1,74 @@
+name: Build Windows executable
+
+# Build a distributable .exe on every push to main, every pull request against
+# main, and every tag push. Tag pushes additionally create a GitHub Release
+# with the .exe attached.
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    # PyInstaller produces platform-specific binaries, and UC Artemis ships as
+    # a Windows .exe. Must build on a Windows runner.
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -v
+
+      - name: Build executable with PyInstaller
+        shell: cmd
+        run: |
+          pyinstaller ^
+            --onefile ^
+            --name "UC Artemis" ^
+            --collect-submodules fitz ^
+            --collect-data fitz ^
+            --add-data "web/templates;web/templates" ^
+            --add-data "web/static;web/static" ^
+            --add-data "web/static/pdfjs;web/static/pdfjs" ^
+            --hidden-import openpyxl.cell._writer ^
+            main.py
+
+      - name: Verify .exe exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist/UC Artemis.exe")) {
+            Write-Error "dist/UC Artemis.exe was not produced"
+            exit 1
+          }
+          $size = (Get-Item "dist/UC Artemis.exe").Length
+          Write-Host "Built UC Artemis.exe: $size bytes"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: UC-Artemis-${{ github.sha }}
+          path: dist/UC Artemis.exe
+          retention-days: 30
+
+      - name: Attach to GitHub Release (tagged pushes only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/UC Artemis.exe
+          generate_release_notes: true
