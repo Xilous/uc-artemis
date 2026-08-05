@@ -15,56 +15,62 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: scan commits
+      - name: scan commits and changed content
         env:
           EV: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.sha }}
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -uo pipefail
 
+          # Vendor tokens are stored encoded so this file does not match its own rule.
+          T1=$(printf '%s' 'Y2xhdWRl' | base64 -d)
+          T2=$(printf '%s' 'YW50aHJvcGlj' | base64 -d)
+          PAT="$T1|$T2"
+
           if [ "$EV" = "pull_request" ]; then
             base=$(git merge-base "$PR_BASE" "$PR_HEAD" 2>/dev/null || echo "$PR_BASE")
-            range=$(git rev-list "$base..$PR_HEAD")
+            head="$PR_HEAD"
           elif [ "$PUSH_BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            range=$(git rev-list "$PUSH_AFTER" --not --remotes=origin --max-count=200)
+            base=$(git rev-list --max-parents=0 "$PUSH_AFTER" | tail -1)
+            head="$PUSH_AFTER"
           else
-            range=$(git rev-list "$PUSH_BEFORE..$PUSH_AFTER" 2>/dev/null || git rev-list "$PUSH_AFTER" --max-count=50)
+            base="$PUSH_BEFORE"
+            head="$PUSH_AFTER"
           fi
 
-          if [ -z "$range" ]; then
-            echo "no new commits to scan"
-            exit 0
-          fi
-
+          range=$(git rev-list "$base..$head" 2>/dev/null || echo "")
           failed=0
+
+          # 1. commit messages + author/committer identity
           for c in $range; do
             meta=$(git show -s --format='%an <%ae>%n%cn <%ce>%n%B' "$c")
-            hit=""
-
-            if echo "$meta" | grep -qiE '^[[:space:]]*co-authored-by:.*(claude|anthropic|copilot|chatgpt|openai)'; then
-              hit="AI co-author trailer (creates a contributor entry)"
-            elif echo "$meta" | grep -qiE 'claude\.ai/code|^[[:space:]]*claude-session:'; then
-              hit="assistant session link"
-            elif echo "$meta" | grep -qiE 'generated (with|by) \[?(claude|chatgpt|copilot)'; then
-              hit="generated-with line"
-            elif echo "$meta" | head -2 | grep -qiE '(claude|anthropic|copilot)\b.*<|<[^>]*(anthropic|claude)[^>]*>'; then
-              hit="assistant in author/committer identity"
-            fi
-
-            if [ -n "$hit" ]; then
-              echo "::error::$(git show -s --format='%h %s' "$c") -- $hit"
+            bad=$(echo "$meta" | grep -inE "$PAT" | head -3)
+            if [ -n "$bad" ]; then
+              echo "::error::commit $(git show -s --format='%h %s' "$c")"
+              echo "$bad" | sed 's/^/    /'
               failed=1
             fi
           done
 
+          # 2. added lines in changed files
+          added=$(git diff -U0 "$base" "$head" 2>/dev/null \
+            | awk '/^\+\+\+ /{f=substr($0,7)} /^\+[^+]/{print f"|"substr($0,2)}' \
+            | grep -iE "$PAT" | head -25)
+
+          if [ -n "$added" ]; then
+            echo "$added" | while IFS='|' read -r f line; do
+              echo "::error file=$f::disallowed vendor reference in added line: $(printf '%s' "$line" | cut -c1-120)"
+            done
+            failed=1
+          fi
+
           if [ "$failed" -eq 1 ]; then
             echo ""
-            echo "Commits above carry AI attribution. Strip the trailers and force-push the branch."
+            echo "Lines above reference a disallowed vendor token. Remove them before merging."
             exit 1
           fi
 
-          echo "scanned $(echo "$range" | wc -l) commit(s) - clean"
+          echo "clean - $(echo "$range" | grep -c . ) commit(s) scanned"
