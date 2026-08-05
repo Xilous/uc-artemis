@@ -2,9 +2,16 @@ name: no-ai-attribution
 
 # Fails when a commit MESSAGE or author/committer IDENTITY mentions the vendor.
 #
-# Scope is deliberately limited to text that lands in a github text field.
-# File contents and path names are OUT of scope, so a tracked CLAUDE.md or a
-# .claude/ entry is fine and is never flagged.
+# What this guard reads: commit messages and author/committer identity. Nothing
+# else. It never opens a file and never inspects a path in the tree, so tracking
+# a file such as testing/CLAUDE.md, or a .claude/ ignore entry, is fine and is
+# never flagged. That is what "files are out of scope" means.
+#
+# It does NOT mean a file path is safe to write INSIDE a message. Any occurrence
+# in message text counts, including one that happens to be a path: a message
+# reading "docs: update testing/CLAUDE.md" fails on purpose. Name the file by
+# role instead, e.g. "docs: update the testing instructions file". Commit the
+# file freely; just do not spell its name in the message.
 
 on:
   pull_request:
@@ -73,7 +80,10 @@ jobs:
 
           if [ "$failed" -eq 1 ]; then
             echo ""
-            echo "Commit messages above reference the vendor. Reword them and force-push."
+            echo "Commit messages above reference the vendor. This includes a bare file"
+            echo "path such as testing/CLAUDE.md - the file is fine to commit, but its"
+            echo "name must not appear in the message. Name it by role instead, e.g."
+            echo "\"the testing instructions file\", then amend and force-push."
             exit 1
           fi
 
