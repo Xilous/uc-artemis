@@ -23,6 +23,9 @@ jobs:
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.sha }}
         run: |
+          # Actions invokes this with `bash -e`. Combined with pipefail, a grep
+          # that matches nothing (exit 1) is the CLEAN case but would abort the
+          # script, so every grep-in-assignment below ends with `|| true`.
           set -uo pipefail
 
           # Vendor tokens are stored encoded so this file does not match its own rule.
@@ -47,7 +50,7 @@ jobs:
           # 1. commit messages + author/committer identity
           for c in $range; do
             meta=$(git show -s --format='%an <%ae>%n%cn <%ce>%n%B' "$c")
-            bad=$(echo "$meta" | grep -inE "$PAT" | head -3)
+            bad=$(echo "$meta" | grep -inE "$PAT" | head -3 || true)
             if [ -n "$bad" ]; then
               echo "::error::commit $(git show -s --format='%h %s' "$c")"
               echo "$bad" | sed 's/^/    /'
@@ -58,7 +61,7 @@ jobs:
           # 2. added lines in changed files
           added=$(git diff -U0 "$base" "$head" 2>/dev/null \
             | awk '/^\+\+\+ /{f=substr($0,7)} /^\+[^+]/{print f"|"substr($0,2)}' \
-            | grep -iE "$PAT" | head -25)
+            | grep -iE "$PAT" | head -25 || true)
 
           if [ -n "$added" ]; then
             echo "$added" | while IFS='|' read -r f line; do
@@ -73,4 +76,5 @@ jobs:
             exit 1
           fi
 
-          echo "clean - $(echo "$range" | grep -c . ) commit(s) scanned"
+          n=$(echo "$range" | grep -c . || true)
+          echo "clean - ${n:-0} commit(s) scanned"
