@@ -1,0 +1,70 @@
+name: no-ai-attribution
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: scan commits
+        env:
+          EV: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -uo pipefail
+
+          if [ "$EV" = "pull_request" ]; then
+            base=$(git merge-base "$PR_BASE" "$PR_HEAD" 2>/dev/null || echo "$PR_BASE")
+            range=$(git rev-list "$base..$PR_HEAD")
+          elif [ "$PUSH_BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            range=$(git rev-list "$PUSH_AFTER" --not --remotes=origin --max-count=200)
+          else
+            range=$(git rev-list "$PUSH_BEFORE..$PUSH_AFTER" 2>/dev/null || git rev-list "$PUSH_AFTER" --max-count=50)
+          fi
+
+          if [ -z "$range" ]; then
+            echo "no new commits to scan"
+            exit 0
+          fi
+
+          failed=0
+          for c in $range; do
+            meta=$(git show -s --format='%an <%ae>%n%cn <%ce>%n%B' "$c")
+            hit=""
+
+            if echo "$meta" | grep -qiE '^[[:space:]]*co-authored-by:.*(claude|anthropic|copilot|chatgpt|openai)'; then
+              hit="AI co-author trailer (creates a contributor entry)"
+            elif echo "$meta" | grep -qiE 'claude\.ai/code|^[[:space:]]*claude-session:'; then
+              hit="assistant session link"
+            elif echo "$meta" | grep -qiE 'generated (with|by) \[?(claude|chatgpt|copilot)'; then
+              hit="generated-with line"
+            elif echo "$meta" | head -2 | grep -qiE '(claude|anthropic|copilot)\b.*<|<[^>]*(anthropic|claude)[^>]*>'; then
+              hit="assistant in author/committer identity"
+            fi
+
+            if [ -n "$hit" ]; then
+              echo "::error::$(git show -s --format='%h %s' "$c") -- $hit"
+              failed=1
+            fi
+          done
+
+          if [ "$failed" -eq 1 ]; then
+            echo ""
+            echo "Commits above carry AI attribution. Strip the trailers and force-push the branch."
+            exit 1
+          fi
+
+          echo "scanned $(echo "$range" | wc -l) commit(s) - clean"
